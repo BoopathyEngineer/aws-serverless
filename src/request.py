@@ -1,7 +1,7 @@
 import requests
 
 API_URL = "https://c14ef56cfk.execute-api.us-east-1.amazonaws.com/Stage/signup"
-EMAIL = "boopathy@yopmail.com"
+EMAIL = "boopathy1@yopmail.com"
 PASSWORD = "YourSecureP@ss1"
 
 def signup(email: str, password: str):
