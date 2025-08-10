@@ -1,0 +1,99 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Serverless Auth API (Cognito + API Gateway + Lambda)
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 10
+    MemorySize: 128
+
+Resources:
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: dev
+      Cors:
+        AllowMethods: "'OPTIONS,POST'"
+        AllowHeaders: "'Content-Type,Authorization'"
+        AllowOrigin: "'*'"
+
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: cognito-sam-user-pool
+      AutoVerifiedAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: cognito-sam-client
+      UserPoolId: !Ref CognitoUserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_SRP_AUTH
+
+  AuthLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: cognito-auth-lambda
+      Handler: app.lambda_handler
+      CodeUri: src/
+      Environment:
+        Variables:
+          USER_POOL_ID: !Ref CognitoUserPool
+          CLIENT_ID: !Ref CognitoUserPoolClient
+      Events:
+        Signup:
+          Type: Api
+          Properties:
+            Path: /signup
+            Method: post
+            RestApiId: !Ref ApiGateway
+        Login:
+          Type: Api
+          Properties:
+            Path: /login
+            Method: post
+            RestApiId: !Ref ApiGateway
+        ForgotPassword:
+          Type: Api
+          Properties:
+            Path: /forgot-password
+            Method: post
+            RestApiId: !Ref ApiGateway
+        ConfirmForgotPassword:
+          Type: Api
+          Properties:
+            Path: /confirm-forgot-password
+            Method: post
+            RestApiId: !Ref ApiGateway
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:AdminCreateUser
+                - cognito-idp:AdminConfirmSignUp
+                - cognito-idp:AdminInitiateAuth
+                - cognito-idp:AdminSetUserPassword
+                - cognito-idp:ForgotPassword
+                - cognito-idp:ConfirmForgotPassword
+                - cognito-idp:SignUp
+                - cognito-idp:InitiateAuth
+                - cognito-idp:AdminGetUser
+              Resource: "*"
+
+Outputs:
+  ApiUrl:
+    Description: "API Gateway endpoint"
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/dev"
